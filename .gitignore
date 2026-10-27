@@ -4,3 +4,6 @@ sample-requests
 labsuser.pem
 tests/unit/__pycache__/
 widget_consumer/__pycache__/
+*.jar
+*.log
+logs
