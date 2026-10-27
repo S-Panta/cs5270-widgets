@@ -36,11 +36,15 @@ class FakeStore(WidgetStore):
 
 
 def request_json(type_="create", widget_id="w-1"):
-    return json.dumps({
-        "type": type_, "requestId": f"req-{widget_id}", "widgetId": widget_id,
-        "owner": "Mary Matthews", "label": "Gear",
-    })
-
+    return json.dumps(
+        {
+            "type": type_,
+            "requestId": f"req-{widget_id}",
+            "widgetId": widget_id,
+            "owner": "Mary Matthews",
+            "label": "Gear",
+        }
+    )
 
 
 def test_no_request_returns_false():
