@@ -11,18 +11,23 @@ from widget_consumer.stores import DynamoDBWidgetStore, S3WidgetStore
 
 def make_widget(**overrides):
     values = dict(
-        widget_id="w-1", owner="Mary Matthews", label="Gear",
-        description="A gear", other_attributes={"color": "blue", "size": "430"},
+        widget_id="w-1",
+        owner="Mary Matthews",
+        label="Gear",
+        description="A gear",
+        other_attributes={"color": "blue", "size": "430"},
     )
     values.update(overrides)
     return Widget(**values)
 
 
-
-@pytest.mark.parametrize("owner, expected", [
-    ("Mary Matthews", "widgets/mary-matthews/w-1"),   
-    ("Sue Ann Smith", "widgets/sue-ann-smith/w-1"),   
-])
+@pytest.mark.parametrize(
+    "owner, expected",
+    [
+        ("Mary Matthews", "widgets/mary-matthews/w-1"),
+        ("Sue Ann Smith", "widgets/sue-ann-smith/w-1"),
+    ],
+)
 def test_make_key_transforms_owner(owner, expected):
     assert S3WidgetStore.make_key(make_widget(owner=owner)) == expected
 
@@ -33,9 +38,13 @@ def test_s3_save_stores_widget_json_at_key():
         s3.create_bucket(Bucket="widget-bucket")
         S3WidgetStore(s3, "widget-bucket").save(make_widget())
 
-        body = s3.get_object(Bucket="widget-bucket", Key="widgets/mary-matthews/w-1")["Body"].read()
+        body = s3.get_object(Bucket="widget-bucket", Key="widgets/mary-matthews/w-1")[
+            "Body"
+        ].read()
         assert json.loads(body) == {
-            "widgetId": "w-1", "owner": "Mary Matthews", "label": "Gear",
+            "widgetId": "w-1",
+            "owner": "Mary Matthews",
+            "label": "Gear",
             "description": "A gear",
             "otherAttributes": [
                 {"name": "color", "value": "blue"},
@@ -44,17 +53,23 @@ def test_s3_save_stores_widget_json_at_key():
         }
 
 
-
 def test_to_item_flattens_other_attributes():
     assert DynamoDBWidgetStore(table=None).to_item(make_widget()) == {
-        "id": "w-1", "owner": "Mary Matthews", "label": "Gear",
-        "description": "A gear", "color": "blue", "size": "430",
+        "id": "w-1",
+        "owner": "Mary Matthews",
+        "label": "Gear",
+        "description": "A gear",
+        "color": "blue",
+        "size": "430",
     }
 
 
 def test_to_item_skips_none_fields():
     widget = make_widget(label=None, description=None, other_attributes={})
-    assert DynamoDBWidgetStore(table=None).to_item(widget) == {"id": "w-1", "owner": "Mary Matthews"}
+    assert DynamoDBWidgetStore(table=None).to_item(widget) == {
+        "id": "w-1",
+        "owner": "Mary Matthews",
+    }
 
 
 def test_to_item_main_fields_win_on_collision_and_custom_key_name():

@@ -15,10 +15,12 @@ def s3():
         client.create_bucket(Bucket=BUCKET)
         yield client
 
+
 def test_debug_show_what_we_are_talking_to(s3):
     creds = boto3.Session().get_credentials()
     print("\nAccess key in use:", creds.access_key)
     print("Buckets visible:", [b["Name"] for b in s3.list_buckets()["Buckets"]])
+
 
 def keys_in_bucket(s3):
     return [obj["Key"] for obj in s3.list_objects_v2(Bucket=BUCKET).get("Contents", [])]
