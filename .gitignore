@@ -1,0 +1,6 @@
+labuser.pem
+sample-requests
+.venv
+labsuser.pem
+tests/unit/__pycache__/
+widget_consumer/__pycache__/
