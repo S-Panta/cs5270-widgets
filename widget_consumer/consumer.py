@@ -49,16 +49,26 @@ class Consumer:
             return False
 
         try:
-            request = WidgetRequest.from_json(raw)
-        except ValueError as error:
-            logger.error("Skipping invalid request: %s", error)
-            return True
+            try:
+                request = WidgetRequest.from_json(raw)
+            except ValueError as error:
+                # A malformed message can never become valid, so it is still acknowledged.
+                logger.error("Skipping invalid request: %s", error)
+                return True
 
+            try:
+                self.handle(request)
+            except Exception:
+                logger.exception("Failed to process request %s", request.request_id)
+            return True
+        finally:
+            self._acknowledge()
+
+    def _acknowledge(self) -> None:
         try:
-            self.handle(request)
+            self.source.acknowledge()
         except Exception:
-            logger.exception("Failed to process request %s", request.request_id)
-        return True
+            logger.exception("Failed to acknowledge request")
 
     def handle(self, request: WidgetRequest) -> None:
         if request.type == "create":
@@ -70,9 +80,34 @@ class Consumer:
                 widget.widget_id,
                 widget.owner,
             )
+        elif request.type == "update":
+            widget = self.store.get(request.widget_id, request.owner)
+            if widget is None:
+                logger.warning(
+                    "Request %s: widget %s not found, nothing to update",
+                    request.request_id,
+                    request.widget_id,
+                )
+                return
+            widget.apply_update(request)
+            self.store.save(widget)
+            logger.info(
+                "Request %s: updated widget %s", request.request_id, widget.widget_id
+            )
+        elif request.type == "delete":
+            if self.store.delete(request.widget_id, request.owner):
+                logger.info(
+                    "Request %s: deleted widget %s",
+                    request.request_id,
+                    request.widget_id,
+                )
+            else:
+                logger.warning(
+                    "Request %s: widget %s does not exist, nothing to delete",
+                    request.request_id,
+                    request.widget_id,
+                )
         else:
             logger.warning(
-                "Request %s: '%s' requests are not supported yet. Therefore skipping",
-                request.request_id,
-                request.type,
+                "Request %s: unknown type '%s'", request.request_id, request.type
             )

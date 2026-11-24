@@ -6,7 +6,7 @@ import boto3
 import click
 
 from .consumer import Consumer
-from .sources import S3RequestSource
+from .sources import S3RequestSource, SqsRequestSource
 from .stores import DynamoDBWidgetStore, S3WidgetStore
 
 
@@ -30,11 +30,50 @@ def build_store(session, storage, widget_bucket, table, key_name):
     return DynamoDBWidgetStore(session.resource("dynamodb").Table(table), key_name)
 
 
+def build_source(
+    session, request_bucket, request_queue, queue_wait_timeout, queue_visibility_timeout
+):
+    if bool(request_bucket) == bool(request_queue):
+        raise click.UsageError(
+            "Specify exactly one of --request-bucket or --request-queue"
+        )
+    if request_bucket:
+        return S3RequestSource(session.client("s3"), request_bucket)
+
+    sqs = session.client("sqs")
+    if request_queue.startswith("https://"):
+        queue_url = request_queue
+    else:
+        queue_url = sqs.get_queue_url(QueueName=request_queue)["QueueUrl"]
+    return SqsRequestSource(
+        sqs, queue_url, queue_wait_timeout, queue_visibility_timeout
+    )
+
+
 @click.command()
 @click.option(
     "--request-bucket",
-    required=True,
+    default=None,
     help="Bucket to read Widget Requests from (Bucket 2).",
+)
+@click.option(
+    "--request-queue",
+    default=None,
+    help="SQS queue name (or URL) to read Widget Requests from.",
+)
+@click.option(
+    "--queue-wait-timeout",
+    type=click.IntRange(0, 20),
+    default=10,
+    show_default=True,
+    help="SQS long-polling wait in seconds.",
+)
+@click.option(
+    "--queue-visibility-timeout",
+    type=click.IntRange(min=1),
+    default=30,
+    show_default=True,
+    help="Seconds a received SQS message stays hidden from other consumers.",
 )
 @click.option(
     "--storage",
@@ -64,6 +103,9 @@ def build_store(session, storage, widget_bucket, table, key_name):
 )
 def main(
     request_bucket,
+    request_queue,
+    queue_wait_timeout,
+    queue_visibility_timeout,
     storage,
     widget_bucket,
     table,
@@ -72,11 +114,17 @@ def main(
     max_empty_polls,
     log_file,
 ):
-    """Consume Widget Requests from S3 and store widgets in S3 or DynamoDB."""
+    """Consume Widget Requests from S3 or SQS and store widgets in S3 or DynamoDB."""
     session = boto3.Session(region_name=region)
     store = build_store(session, storage.lower(), widget_bucket, table, key_name)
     setup_logging(log_file)
-    source = S3RequestSource(session.client("s3"), request_bucket)
+    source = build_source(
+        session,
+        request_bucket,
+        request_queue,
+        queue_wait_timeout,
+        queue_visibility_timeout,
+    )
     Consumer(source, store, max_empty_polls=max_empty_polls).run()
 
 

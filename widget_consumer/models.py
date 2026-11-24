@@ -76,3 +76,17 @@ class Widget:
             description=request.description,
             other_attributes=dict(request.other_attributes),
         )
+
+    def apply_update(self, request: WidgetRequest):
+        """Apply an update request in place ."""
+        if request.label is not None:
+            self.label = request.label or None
+        if request.description is not None:
+            self.description = request.description or None
+        for name, value in request.other_attributes.items():
+            if value is None:
+                continue
+            if value == "":
+                self.other_attributes.pop(name, None)
+            else:
+                self.other_attributes[name] = value

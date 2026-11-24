@@ -7,3 +7,4 @@ widget_consumer/__pycache__/
 *.jar
 *.log
 logs
+docker.env
